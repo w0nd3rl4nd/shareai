@@ -2,6 +2,8 @@
 
 import fs from "fs";
 import path from "path";
+import clipboard from "clipboardy";
+
 
 const ROOT = process.cwd();
 const WHITELIST_FILE = path.join(ROOT, ".aiwhitelist");
@@ -75,3 +77,6 @@ for (const f of filesToInclude) {
 // Write to file
 fs.writeFileSync(OUTPUT_FILE, output.trim(), "utf8");
 console.log(`✅ Output written to ${OUTPUT_FILE}`);
+
+clipboard.writeSync(output.trim());
+console.log("📋 Output copied to clipboard!");
