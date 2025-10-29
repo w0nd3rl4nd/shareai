@@ -1,0 +1,21 @@
+{
+  "name": "shareai",
+  "version": "1.0.0",
+  "description": "CLI tool to collect and format whitelisted project files for AI input",
+  "main": "index.js",
+  "type": "module",
+  "bin": {
+    "shareai": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^24.9.2",
+    "typescript": "^5.9.3"
+  }
+}
