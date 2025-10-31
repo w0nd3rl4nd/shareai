@@ -43,6 +43,7 @@ const DEFAULT_IGNORE_PATTERNS = [
   "*.sql",
   "*.sqlite",
   "*.sqlite3",
+  "*.postgresql",
   "*.lock",
   "node_modules/**",
   "dist/**",
@@ -67,7 +68,6 @@ const gitignorePatterns: string[] = fs.existsSync(GITIGNORE_FILE)
   : [];
 
 // Read .aiignore if exists, or create default one
-let aiignorePatterns: string[] = [];
 if (fs.existsSync(AIIGNORE_FILE)) {
   const existingContent = fs.readFileSync(AIIGNORE_FILE, "utf8");
   const existingLines = existingContent
@@ -75,16 +75,22 @@ if (fs.existsSync(AIIGNORE_FILE)) {
     .map(line => line.trim())
     .filter(line => line && !line.startsWith("#"));
   
-  // Preserve existing content first, then add common types
+  // Convert existing patterns to a Set for fast lookup
+  const existingSet = new Set(existingLines);
+
+  // Filter out already existing patterns from DEFAULT_IGNORE_PATTERNS
+  const missingPatterns = DEFAULT_IGNORE_PATTERNS.filter(pattern => !existingSet.has(pattern));
+
+  // Combine existing lines with missing default patterns
   const updatedContent = [
     ...existingLines,
     "", // Empty line separator
-    ...DEFAULT_IGNORE_PATTERNS
+    ...missingPatterns
   ];
   
   // Write updated content back to file (existing content first, then common types)
   fs.writeFileSync(AIIGNORE_FILE, updatedContent.join("\n"));
-  console.log(`✅ Updated .aiignore file with existing patterns followed by common types`);
+  console.log(`✅ Updated .aiignore file with existing patterns followed by missing common types`);
 } else {
   // Create .aiignore with default patterns only
   fs.writeFileSync(AIIGNORE_FILE, DEFAULT_IGNORE_PATTERNS.join("\n"));
