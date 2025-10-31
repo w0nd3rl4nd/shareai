@@ -92,7 +92,7 @@ if (fs.existsSync(AIIGNORE_FILE)) {
 }
 
 // Combine ignore patterns
-const ignorePatterns: string[] = [...gitignorePatterns, ...aiignorePatterns];
+const ignorePatterns: string[] = [...gitignorePatterns, ...DEFAULT_IGNORE_PATTERNS];
 
 // Always ignore ShareAIOutput.txt
 ignorePatterns.push("ShareAIOutput.txt");
@@ -105,21 +105,23 @@ function shouldIgnore(filePath: string): boolean {
     return true;
   }
   
-  // Handle directory patterns (ending with /**)
+  // Handle different pattern types
   for (const pattern of ignorePatterns) {
-    if (pattern.endsWith("/")) {
-      // This is a directory pattern, check if relativePath starts with it
-      if (relativePath.startsWith(pattern)) {
-        return true;
-      }
-    } else if (pattern.endsWith("**")) {
-      // Handle globstar patterns like "node_modules/**"
+    // Handle directory patterns like "node_modules/**"
+    if (pattern.endsWith("**")) {
       const basePattern = pattern.slice(0, -2); // Remove the "**"
       if (relativePath.startsWith(basePattern)) {
         return true;
       }
-    } else if (pattern.includes("*")) {
-      // Handle wildcard patterns
+    }
+    // Handle directory patterns ending with "/"
+    else if (pattern.endsWith("/")) {
+      if (relativePath.startsWith(pattern)) {
+        return true;
+      }
+    }
+    // Handle wildcard patterns like "*.db"
+    else if (pattern.includes("*")) {
       const regexPattern = pattern
         .replace(/\./g, '\\.')
         .replace(/\*/g, '.*');
@@ -127,8 +129,9 @@ function shouldIgnore(filePath: string): boolean {
       if (regex.test(relativePath)) {
         return true;
       }
-    } else {
-      // Handle exact matches
+    }
+    // Handle exact matches
+    else {
       if (relativePath === pattern) {
         return true;
       }
