@@ -37,6 +37,8 @@ pnpm shareai
 
 1. **Create `.aiignore` in your project root (optional)**  
    This file works like `.gitignore`, but only affects ShareAI's behavior. 
+
+   The file will be automatically created with common non-code file patterns if it doesn't exist.
  
    Example:
    ```
