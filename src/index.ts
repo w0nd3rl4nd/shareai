@@ -40,6 +40,7 @@ const DEFAULT_IGNORE_PATTERNS = [
   "*.tar",
   "*.gz",
   "*.db",
+  "*.sql",
   "*.sqlite",
   "*.sqlite3",
   "*.lock",
@@ -104,12 +105,37 @@ function shouldIgnore(filePath: string): boolean {
     return true;
   }
   
-  return ignorePatterns.some(pattern => {
+  // Handle directory patterns (ending with /**)
+  for (const pattern of ignorePatterns) {
     if (pattern.endsWith("/")) {
-      return relativePath.startsWith(pattern);
+      // This is a directory pattern, check if relativePath starts with it
+      if (relativePath.startsWith(pattern)) {
+        return true;
+      }
+    } else if (pattern.endsWith("**")) {
+      // Handle globstar patterns like "node_modules/**"
+      const basePattern = pattern.slice(0, -2); // Remove the "**"
+      if (relativePath.startsWith(basePattern)) {
+        return true;
+      }
+    } else if (pattern.includes("*")) {
+      // Handle wildcard patterns
+      const regexPattern = pattern
+        .replace(/\./g, '\\.')
+        .replace(/\*/g, '.*');
+      const regex = new RegExp(`^${regexPattern}$`);
+      if (regex.test(relativePath)) {
+        return true;
+      }
+    } else {
+      // Handle exact matches
+      if (relativePath === pattern) {
+        return true;
+      }
     }
-    return relativePath.includes(pattern) || relativePath === pattern;
-  });
+  }
+  
+  return false;
 }
 
 function getAllFiles(dir: string): string[] {
@@ -120,6 +146,7 @@ function getAllFiles(dir: string): string[] {
     if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
 
     const full = path.join(dir, entry.name);
+    
     if (entry.isDirectory()) {
       files.push(...getAllFiles(full));
     } else {
@@ -137,12 +164,17 @@ const filesToInclude = getAllFiles(ROOT);
 // Add project name and file count at the beginning
 const projectName = path.basename(ROOT);
 const fileCount = filesToInclude.length;
-let output = `PROJECT: ${projectName}\nFILE COUNT: ${fileCount}\n\n`;
+let output = `[PROJECT]: ${projectName}\n[FILE COUNT]: ${fileCount}\n\n`;
 
 for (const f of filesToInclude) {
   const rel = path.relative(ROOT, f);
-  const code = fs.readFileSync(f, "utf8");
-  output += `FILE: ${rel}\nCONTENT:\n${code}\nEND FILE\n\n`;
+  try {
+    const content = fs.readFileSync(f, "utf8");
+    output += `[FILE]: ${rel}\n[CONTENT]:\n${content}\n[END FILE]\n\n`;
+  } catch (error) {
+    // Skip files that can't be read (like binary files)
+    console.warn(`⚠️  Skipping unreadable file: ${rel}`);
+  }
 }
 
 // Write to file
