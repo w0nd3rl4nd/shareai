@@ -1,6 +1,6 @@
 {
   "name": "shareai",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "CLI tool to collect and format whitelisted project files for AI input",
   "main": "index.js",
   "type": "module",

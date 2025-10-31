@@ -4,22 +4,48 @@ import fs from "fs";
 import path from "path";
 import clipboard from "clipboardy";
 
-
 const ROOT = process.cwd();
-const WHITELIST_FILE = path.join(ROOT, ".aiwhitelist");
+const GITIGNORE_FILE = path.join(ROOT, ".gitignore");
+const AIIGNORE_FILE = path.join(ROOT, ".aiignore");
 const OUTPUT_FILE = path.join(ROOT, "ShareAIOutput.txt");
 
-if (!fs.existsSync(WHITELIST_FILE)) {
-  console.error("❌ No .aiwhitelist file found in current directory.");
-  console.error("Please generate a '.aiwhitelist' file in your execution directory");
-  process.exit(1);
-}
+// Read .gitignore or fallback to empty array
+const gitignorePatterns: string[] = fs.existsSync(GITIGNORE_FILE)
+  ? fs.readFileSync(GITIGNORE_FILE, "utf8")
+      .split("\n")
+      .map(l => l.trim())
+      .filter(l => l && !l.startsWith("#"))
+  : [];
 
-const whitelist: string[] = fs
-  .readFileSync(WHITELIST_FILE, "utf8")
-  .split("\n")
-  .map(l => l.trim())
-  .filter(l => l && !l.startsWith("#"));
+// Read .aiignore if exists
+const aiignorePatterns: string[] = fs.existsSync(AIIGNORE_FILE)
+  ? fs.readFileSync(AIIGNORE_FILE, "utf8")
+      .split("\n")
+      .map(l => l.trim())
+      .filter(l => l && !l.startsWith("#"))
+  : [];
+
+// Combine ignore patterns
+const ignorePatterns = [...gitignorePatterns, ...aiignorePatterns];
+
+// Always ignore ShareAIOutput.txt
+ignorePatterns.push("ShareAIOutput.txt");
+
+function shouldIgnore(filePath: string): boolean {
+  const relativePath = path.relative(ROOT, filePath);
+  
+  // Always ignore .gitignore and .aiignore files themselves
+  if (relativePath === ".gitignore" || relativePath === ".aiignore") {
+    return true;
+  }
+  
+  return ignorePatterns.some(pattern => {
+    if (pattern.endsWith("/")) {
+      return relativePath.startsWith(pattern);
+    }
+    return relativePath.includes(pattern) || relativePath === pattern;
+  });
+}
 
 function getAllFiles(dir: string): string[] {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -27,47 +53,27 @@ function getAllFiles(dir: string): string[] {
 
   for (const entry of entries) {
     if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
+
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       files.push(...getAllFiles(full));
     } else {
-      files.push(full);
+      if (!shouldIgnore(full)) {
+        files.push(full);
+      }
     }
   }
 
   return files;
 }
 
-let filesToInclude: string[] = [];
+const filesToInclude = getAllFiles(ROOT);
 
-for (const entry of whitelist) {
-  const isGlob = entry.endsWith("/*");
-  const basePath = isGlob ? entry.slice(0, -2) : entry;
-  const full = path.join(ROOT, basePath);
+// Add project name and quantity of files at the beginning
+const projectName = path.basename(ROOT);
+const fileCount = filesToInclude.length;
+let output = `[PROJECT NAME]: ${projectName}\n[QUANTITY OF FILES]: ${fileCount}\n\n`;
 
-  if (!fs.existsSync(full)) {
-    console.warn("⚠️ Skipped (not found):", entry);
-    continue;
-  }
-
-  const stat = fs.statSync(full);
-
-  if (stat.isDirectory()) {
-    // if glob, include all files recursively
-    if (isGlob) {
-      filesToInclude.push(...getAllFiles(full));
-    } else {
-      filesToInclude.push(...getAllFiles(full));
-    }
-  } else {
-    filesToInclude.push(full);
-  }
-}
-
-// remove duplicates
-filesToInclude = [...new Set(filesToInclude)];
-
-let output = "";
 for (const f of filesToInclude) {
   const rel = path.relative(ROOT, f);
   const code = fs.readFileSync(f, "utf8");
