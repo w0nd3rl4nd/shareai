@@ -5,6 +5,7 @@ import path from "path";
 import clipboard from "clipboardy";
 
 const ROOT = process.cwd();
+const WHITELIST_FILE = path.join(ROOT, ".aiwhitelist");
 const GITIGNORE_FILE = path.join(ROOT, ".gitignore");
 const AIIGNORE_FILE = path.join(ROOT, ".aiignore");
 const OUTPUT_FILE = path.join(ROOT, "ShareAIOutput.txt");
@@ -58,6 +59,89 @@ const DEFAULT_IGNORE_PATTERNS = [
   "*.tmp",
   "*.temp"
 ];
+
+// Check if whitelist exists - if so, use whitelist mode exclusively
+if (fs.existsSync(WHITELIST_FILE)) {
+  console.log("📋 Using .aiwhitelist mode (ignoring .gitignore and .aiignore)");
+  
+  const whitelist: string[] = fs
+    .readFileSync(WHITELIST_FILE, "utf8")
+    .split("\n")
+    .map(l => l.trim())
+    .filter(l => l && !l.startsWith("#"));
+
+  function getAllFiles(dir: string): string[] {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    const files: string[] = [];
+
+    for (const entry of entries) {
+      if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        files.push(...getAllFiles(full));
+      } else {
+        files.push(full);
+      }
+    }
+
+    return files;
+  }
+
+  let filesToInclude: string[] = [];
+
+  for (const entry of whitelist) {
+    const isGlob = entry.endsWith("/*");
+    const basePath = isGlob ? entry.slice(0, -2) : entry;
+    const full = path.join(ROOT, basePath);
+
+    if (!fs.existsSync(full)) {
+      console.warn("⚠️ Skipped (not found):", entry);
+      continue;
+    }
+
+    const stat = fs.statSync(full);
+
+    if (stat.isDirectory()) {
+      // if glob, include all files recursively
+      if (isGlob) {
+        filesToInclude.push(...getAllFiles(full));
+      } else {
+        filesToInclude.push(...getAllFiles(full));
+      }
+    } else {
+      filesToInclude.push(full);
+    }
+  }
+
+  // remove duplicates
+  filesToInclude = [...new Set(filesToInclude)];
+
+  // Add project name and file count at the beginning
+  const projectName = path.basename(ROOT);
+  const fileCount = filesToInclude.length;
+  let output = `[PROJECT]: ${projectName}\n[FILE COUNT]: ${fileCount}\n\n`;
+
+  for (const f of filesToInclude) {
+    const rel = path.relative(ROOT, f);
+    try {
+      const code = fs.readFileSync(f, "utf8");
+      output += `[FILE]: ${rel}\n[CONTENT]:\n${code.trim()}\n[END FILE]\n\n`;
+    } catch (error) {
+      console.warn(`⚠️  Skipping unreadable file: ${rel}`);
+    }
+  }
+
+  // Write to file
+  fs.writeFileSync(OUTPUT_FILE, output.trim(), "utf8");
+  console.log(`✅ Output written to ${OUTPUT_FILE}`);
+
+  clipboard.writeSync(output.trim());
+  console.log("📋 Output copied to clipboard!");
+  process.exit(0);
+}
+
+// If no whitelist exists, continue with normal ignore-based mode
+console.log("📋 Using ignore-based mode (.gitignore + .aiignore)");
 
 // Read .gitignore or fallback to empty array
 const gitignorePatterns: string[] = fs.existsSync(GITIGNORE_FILE)
