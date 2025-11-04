@@ -10,6 +10,7 @@ snippets with context.
 ignored files by default)
 - **Override with `.aiignore`**: Optionally specify files/folders to 
 exclude **only from ShareAI** using `.aiignore`
+- **Use whitelist instead with `.aiwhitelist`**: Specify folders and files to be copied and exclude everything else. *This will ignore .gitignore and .aiignore*.
 - **Supports glob `*`** for recursive inclusion
 - **Skips hidden files and `node_modules`** by default
 - **Outputs formatted files** to `ShareAIOutput.txt`
@@ -37,6 +38,8 @@ pnpm shareai
 
 1. **Create `.aiignore` in your project root (optional)**  
    This file works like `.gitignore`, but only affects ShareAI's behavior. 
+
+   **Alternatively**, use `.aiwhitelist` to use whitelisting instead. *Note: this will exclude any contents of `.gitignore` and `.aiignore` and only use the whitelist.*
 
    The file will be automatically created with common non-code file patterns if it doesn't exist.
  
